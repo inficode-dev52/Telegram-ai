@@ -29,21 +29,19 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
-      - name: Setup Gradle 9.3.1
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '9.3.1'
+          gradle-version: '8.7'
 
       - name: Install Android SDK Packages
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" \
-            "platforms;android-35" \
-            "platforms;android-36" \
-            "platforms;android-37" \
-            "build-tools;36.0.0"
+            "platforms;android-34" \
+            "build-tools;34.0.0"
 
       - name: Build Debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
