@@ -2,6 +2,8 @@ package com.aditya.ai.td
 import android.content.Context
 import android.net.*
 import android.os.*
+import android.util.Log
+import java.io.File
 import com.aditya.ai.BuildConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -33,7 +35,19 @@ class Telegram(private val ctx: Context) {
     private val handler = Handler(Looper.getMainLooper()); private val pubPending = AtomicBoolean(false); private var warmed = false
 
     fun start() {
-        client = Client.create({ onUpdate(it) }, { error.value = it.message }, null)
+        client = Client.create(
+            { onUpdate(it) },
+            { e ->
+                Log.e("AdityaTDLib", "TDLib update exception", e)
+                error.value = e.message ?: "TDLib update error"
+                auth.value = Auth.ERROR
+            },
+            { e ->
+                Log.e("AdityaTDLib", "TDLib default exception", e)
+                error.value = e.message ?: "TDLib initialization error"
+                auth.value = Auth.ERROR
+            }
+        )
         runCatching {
             ctx.getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(n: Network) { online.value = true; send(TdApi.SetNetworkType(TdApi.NetworkTypeOther()), true) }
@@ -82,11 +96,23 @@ class Telegram(private val ctx: Context) {
         when (s) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
                 val p = TdApi.SetTdlibParameters()
-                p.databaseDirectory = ctx.filesDir.absolutePath + "/td"; p.filesDirectory = ctx.filesDir.absolutePath + "/tdfiles"
+                val dbDir = File(ctx.filesDir, "td")
+                val filesDir = File(ctx.filesDir, "tdfiles")
+                check(dbDir.exists() || dbDir.mkdirs()) { "Cannot create TDLib database directory" }
+                check(filesDir.exists() || filesDir.mkdirs()) { "Cannot create TDLib files directory" }
+                p.databaseDirectory = dbDir.absolutePath
+                p.filesDirectory = filesDir.absolutePath
                 p.useMessageDatabase = true; p.useChatInfoDatabase = true; p.useFileDatabase = true
                 p.apiId = BuildConfig.TG_API_ID; p.apiHash = BuildConfig.TG_API_HASH
                 p.systemLanguageCode = "en"; p.deviceModel = "Android"; p.applicationVersion = BuildConfig.VERSION_NAME
-                send(p)
+                client?.send(p) { r ->
+                    if (r is TdApi.Error) {
+                        val message = "TDLib setup failed (${r.code}): ${r.message}"
+                        Log.e("AdityaTDLib", message)
+                        error.value = message
+                        auth.value = Auth.ERROR
+                    }
+                }
             }
             is TdApi.AuthorizationStateWaitPhoneNumber -> auth.value = Auth.PHONE
             is TdApi.AuthorizationStateWaitCode -> auth.value = Auth.CODE

@@ -26,10 +26,27 @@ import kotlinx.coroutines.launch
     AdityaTheme(when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             var splash by remember { mutableStateOf(true) }; LaunchedEffect(Unit) { delay(1500); splash = false }
-            val key = when { locked -> "lock"; splash || a == Auth.LOADING -> "splash"; a == Auth.READY -> "main"; else -> "login" }
+            val key = when { locked -> "lock"; a == Auth.ERROR -> "error"; splash || a == Auth.LOADING -> "splash"; a == Auth.READY -> "main"; else -> "login" }
             Crossfade(key, animationSpec = tween(450), label = "root") { k -> when (k) {
-                "lock" -> LockScreen(unlock); "splash" -> Splash(); "main" -> MainScreen(app); else -> LoginScreen(a, app.tg) } }
+                "lock" -> LockScreen(unlock); "error" -> ErrorScreen(app.tg); "splash" -> Splash(); "main" -> MainScreen(app); else -> LoginScreen(a, app.tg) } }
         }
+    }
+}
+@Composable private fun ErrorScreen(tg: Telegram) {
+    val err by tg.error.collectAsState()
+    Column(
+        Modifier.fillMaxSize().padding(28.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(52.dp))
+        Spacer(Modifier.height(18.dp))
+        Text("Connection setup failed", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            err ?: "Aditya could not initialize Telegram. Please reopen the app and try again.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 @Composable fun Logo(size: Dp) = Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Lav, Color(0xFFB4A8F0)))), Alignment.Center) {
