@@ -1,0 +1,19 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env: { TG_API_ID: "${{ secrets.TG_API_ID }}", TG_API_HASH: "${{ secrets.TG_API_HASH }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require TDLib AAR and secrets
+        run: |
+          test -f app/libs/tdlib.aar || { echo "::error::Add app/libs/tdlib.aar (see README)"; exit 1; }
+          test -n "$TG_API_ID" -a -n "$TG_API_HASH" || { echo "::error::Set TG_API_ID and TG_API_HASH repository secrets"; exit 1; }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.7" }
+      - run: gradle :app:assembleRelease --stacktrace
+      - uses: actions/upload-artifact@v4
+        with: { name: aditya-ai-apk, path: app/build/outputs/apk/release/*.apk }
