@@ -188,15 +188,33 @@ class Telegram(private val ctx: Context) {
     private fun reply(s: TdApi.SendMessage, to: Long) { if (to != 0L) { val r = TdApi.InputMessageReplyToMessage(); r.messageId = to; s.replyTo = r } }
     fun sendText(chatId: Long, text: String, replyTo: Long = 0) { val s = TdApi.SendMessage(); s.chatId = chatId; reply(s, replyTo); s.inputMessageContent = textContent(text); send(s) }
     fun sendFile(chatId: Long, path: String, photo: Boolean, caption: String, replyTo: Long = 0) {
-        val s = TdApi.SendMessage(); s.chatId = chatId; reply(s, replyTo); val cap = TdApi.FormattedText(caption, arrayOf())
-        if (photo) { val p = TdApi.InputMessagePhoto(); p.photo = TdApi.InputFileLocal(path); p.caption = cap; s.inputMessageContent = p }
-        else { val d = TdApi.InputMessageDocument(); d.document = TdApi.InputFileLocal(path); d.caption = cap; s.inputMessageContent = d }
+        val s = TdApi.SendMessage()
+        s.chatId = chatId
+        reply(s, replyTo)
+        val cap = TdApi.FormattedText(caption, arrayOf())
+
+        if (photo) {
+            val input = TdApi.InputPhoto()
+            input.photo = TdApi.InputFileLocal(path)
+            val p = TdApi.InputMessagePhoto()
+            p.photo = input
+            p.caption = cap
+            s.inputMessageContent = p
+        } else {
+            val input = TdApi.InputDocument()
+            input.document = TdApi.InputFileLocal(path)
+            val d = TdApi.InputMessageDocument()
+            d.document = input
+            d.caption = cap
+            s.inputMessageContent = d
+        }
         send(s)
     }
+
     fun edit(chatId: Long, msgId: Long, text: String) { val e = TdApi.EditMessageText(); e.chatId = chatId; e.messageId = msgId; e.inputMessageContent = textContent(text); send(e) }
     fun delete(chatId: Long, msgId: Long) {
-        val revoke = cache[chatId]?.let { t -> synchronized(t) { t[msgId]?.canBeDeletedForAllUsers } } == true
-        send(TdApi.DeleteMessages(chatId, longArrayOf(msgId), revoke))
+        send(TdApi.DeleteMessages(chatId, longArrayOf(msgId), false))
     }
+
     fun forward(toChat: Long, fromChat: Long, msgId: Long) { val f = TdApi.ForwardMessages(); f.chatId = toChat; f.fromChatId = fromChat; f.messageIds = longArrayOf(msgId); send(f) }
 }
