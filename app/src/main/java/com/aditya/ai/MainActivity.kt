@@ -14,14 +14,14 @@ import com.aditya.ai.svc.SyncService
 import com.aditya.ai.ui.Root
 class MainActivity : FragmentActivity() {
     private val locked = mutableStateOf(false); private var prompting = false
-    private val perm = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     private val app get() = application as AdityaApp
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         if (app.store.bool("secure", false)) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         locked.value = app.store.bool("lock", false)
         handle(intent)
-        if (Build.VERSION.SDK_INT >= 33) perm.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) { requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001) }
         startForegroundService(Intent(this, SyncService::class.java))
         setContent { Root(app, locked.value) { unlock() } }
     }
