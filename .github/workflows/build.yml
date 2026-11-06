@@ -109,6 +109,8 @@ jobs:
           echo "Temporary debug keystore verified successfully."
       - name: Build debug APK
         env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: |
           gradle :app:assembleDebug --stacktrace --no-daemon
