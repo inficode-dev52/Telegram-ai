@@ -1,0 +1,4 @@
+# Copy to local.properties (never commit)
+sdk.dir=/path/to/android/sdk
+TG_API_ID=
+TG_API_HASH=

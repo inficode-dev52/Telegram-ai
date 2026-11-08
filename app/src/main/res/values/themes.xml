@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Midnight window background so there is no white flash before the Compose startup animation draws. -->
+    <style name="Theme.Aditya" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/aditya_midnight</item>
+        <item name="android:statusBarColor">@color/aditya_midnight</item>
+        <item name="android:navigationBarColor">@color/aditya_midnight</item>
+        <item name="android:colorAccent">@color/aditya_cyan</item>
+    </style>
+</resources>
