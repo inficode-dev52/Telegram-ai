@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - 'feature/**'
   workflow_dispatch:
 
 
@@ -107,6 +108,12 @@ jobs:
             exit 1
           fi
           echo "Temporary debug keystore verified successfully."
+      - name: Run unit tests
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          gradle :app:testDebugUnitTest --stacktrace --no-daemon
       - name: Build debug APK
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
@@ -173,6 +180,7 @@ jobs:
           echo "asset_filename=${RELEASE_FILENAME}" >> "$GITHUB_OUTPUT"
       - name: Publish APK to GitHub Releases
         id: publish_release
+        if: github.ref_name == 'main' || github.ref_name == 'master'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

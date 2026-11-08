@@ -13,36 +13,6 @@ import com.aditya.ai.AdityaApp
 import com.aditya.ai.ai.Mode
 import java.util.*
 
-@Composable fun HomeScreen(app: AdityaApp, open: (Long) -> Unit, go: (String) -> Unit) {
-    val tg = app.tg; val chats by tg.chats.collectAsState(); val loaded by tg.loaded.collectAsState(); val conn by tg.connection.collectAsState(); val online by tg.online.collectAsState()
-    val events by app.store.events.collectAsState(); val tasks by app.store.tasks.collectAsState(); val flags by app.store.flags.collectAsState()
-    val drafts by app.engine.pending.collectAsState(); val human by app.engine.humanMode.collectAsState()
-    val cal = Calendar.getInstance(); val hour = cal.get(Calendar.HOUR_OF_DAY)
-    val day = cal.apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis
-    val unread = chats.filter { !it.archived && !it.muted }.sumOf { it.unread }; val aiToday = events.count { it.type == "ai_reply" && it.ts >= day }
-    val open_ = tasks.count { !it.done } + drafts.size + flags.size; val activeChats = chats.count { app.engine.chatMode(it.id) != Mode.OFF }
-    Column(Modifier.fillMaxSize()) {
-        Title(when { hour < 12 -> "Good morning"; hour < 18 -> "Good afternoon"; else -> "Good evening" }) {
-            IconButton({ go("search") }) { Icon(Icons.Default.Search, "Search") }; IconButton({ go("notifs") }) { Icon(Icons.Default.Notifications, "Notifications") } }
-        Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Pill(if (online) conn else "Offline", online && conn == "Connected")
-            Pill(if (human) "Human mode" else "AI active in $activeChats chats", !human && activeChats > 0) }
-        Spacer(Modifier.height(20.dp))
-        Row(Modifier.padding(horizontal = 24.dp)) { Stat("Unread", unread, Modifier.weight(1f)); Stat("Chats", chats.count { !it.archived }, Modifier.weight(1f)) }
-        Row(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) { Stat("AI replies today", aiToday, Modifier.weight(1f)); Stat("Open items", open_, Modifier.weight(1f)) }
-        Section("Needs attention")
-        if (flags.isEmpty()) Text("Nothing needs your attention.", Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        flags.take(3).forEach { f -> ListItem({ Text(f.title, maxLines = 1) }, Modifier.clickable { open(f.chatId) }, supportingContent = { Text(f.text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            overlineContent = { Text(f.reason) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background)) }
-        Section("Recent")
-        if (!loaded && chats.isEmpty()) SkeletonRows(3) else chats.filter { !it.archived }.take(3).forEach { c ->
-            ListItem({ Text(c.title, maxLines = 1) }, Modifier.clickable { open(c.id) }, supportingContent = { Text(c.lastText, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingContent = { Avatar(c.title, c.photoId, tg, 40.dp) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background)) }
-    }
-}
-@Composable private fun Stat(label: String, n: Int, m: Modifier) = Column(m) {
-    AnimatedCount(n, MaterialTheme.typography.displaySmall, MaterialTheme.colorScheme.primary); Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-
 @Composable fun ChatsScreen(app: AdityaApp, open: (Long) -> Unit, go: (String) -> Unit) {
     val tg = app.tg; val chats by tg.chats.collectAsState(); val loaded by tg.loaded.collectAsState(); var f by remember { mutableStateOf("All") }
     val list = chats.filter { c -> if (f == "Archive") c.archived else !c.archived && when (f) { "Unread" -> c.unread > 0; "Groups" -> c.kind == "Group"; "Channels" -> c.kind == "Channel"; "Bots" -> c.kind == "Bot"; "Saved" -> c.kind == "Saved"; else -> true } }

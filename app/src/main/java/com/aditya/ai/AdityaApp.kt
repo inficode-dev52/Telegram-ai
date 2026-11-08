@@ -1,17 +1,29 @@
 package com.aditya.ai
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import com.aditya.ai.ai.*
 import com.aditya.ai.data.Store
+import com.aditya.ai.data.V2Store
+import com.aditya.ai.intel.IntelEngine
+import com.aditya.ai.svc.Reminders
 import com.aditya.ai.td.Telegram
+import com.aditya.ai.voice.VoiceIO
 import kotlinx.coroutines.flow.MutableStateFlow
 class AdityaApp : Application() {
     lateinit var store: Store; lateinit var tg: Telegram; lateinit var ai: Ai; lateinit var engine: ReplyEngine; lateinit var brain: Intelligence
-    val openChat = MutableStateFlow<Long?>(null); val theme = MutableStateFlow("system")
+    // v2 additions (own storage file; the original store/TDLib objects above are created exactly as before)
+    lateinit var v2: V2Store; lateinit var intel: IntelEngine; lateinit var voice: VoiceIO; lateinit var assistant: AssistantEngine
+    val openChat = MutableStateFlow<Long?>(null); val theme = MutableStateFlow("system"); val reduceMotion = MutableStateFlow(false)
     @Volatile var visible = false; @Volatile var suppressLock = false
     override fun onCreate() {
         super.onCreate()
         store = Store(this); theme.value = store.str("theme", "system")
-        tg = Telegram(this); ai = Ai(store); engine = ReplyEngine(store, tg, ai); brain = Intelligence(this, store, tg, ai)
-        tg.start(); engine.start(); brain.start()
+        v2 = V2Store(this); reduceMotion.value = v2.bool("reduce_motion", false)
+        tg = Telegram(this); ai = Ai(store); engine = ReplyEngine(store, tg, ai, v2.drafts); brain = Intelligence(this, store, tg, ai)
+        intel = IntelEngine(v2, tg, ai); voice = VoiceIO(this, v2)
+        assistant = AssistantEngine(v2, store.events, store.tasks, tg, ai, intel, voice)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(Reminders.CHANNEL, "Task reminders", NotificationManager.IMPORTANCE_DEFAULT))
+        tg.start(); engine.start(); brain.start(); intel.start()
     }
 }

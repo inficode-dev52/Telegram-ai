@@ -23,13 +23,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-val Lav = Color(0xFF7C6BD6)
-@Composable fun AdityaTheme(dark: Boolean, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = Color(0xFFB4A8F0), onPrimary = Color(0xFF1B1530), background = Color(0xFF121117), surface = Color(0xFF121117),
-        surfaceVariant = Color(0xFF25232F), onSurface = Color(0xFFE9E6F2), onSurfaceVariant = Color(0xFFA9A5B8), primaryContainer = Color(0xFF3A3160), onPrimaryContainer = Color(0xFFE9E6F2))
-    else lightColorScheme(primary = Lav, background = Color(0xFFFAF9FD), surface = Color(0xFFFAF9FD), surfaceVariant = Color(0xFFF0EDF9), onSurface = Color(0xFF1B1A22),
-        onSurfaceVariant = Color(0xFF6B6879), primaryContainer = Color(0xFFE7E2FA), onPrimaryContainer = Color(0xFF1B1A22)), content = content)
-}
 @Composable fun Modifier.shimmer(): Modifier {
     val x by rememberInfiniteTransition(label = "sh").animateFloat(0f, 1000f, infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "x")
     val c = MaterialTheme.colorScheme.surfaceVariant; val h = MaterialTheme.colorScheme.background
