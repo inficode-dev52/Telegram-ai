@@ -27,14 +27,14 @@ class Intelligence(private val app: AdityaApp, private val store: Store, private
         val isQ = t.contains("?") && personal
         if (urgent.any { t.contains(it) } && (personal || t.length < 400)) store.addFlag(m.chatId, m.chatTitle, m.text.take(200), "Important")
         else if (isQ) store.addFlag(m.chatId, m.chatTitle, m.text.take(200), "Question")
-        if (personal && taskRe.containsMatchIn(m.text)) store.addTask(m.chatId, m.chatTitle, m.text.take(160))
+        // Tasks are no longer created silently: suggestions are produced by IntelEngine and need the user's approval.
     }
     private fun notify(m: Incoming) {
         if (!store.bool("notif", true) || m.muted || app.visible) return
         val nm = NotificationManagerCompat.from(app); if (!nm.areNotificationsEnabled()) return
         val pi = PendingIntent.getActivity(app, m.chatId.hashCode(), Intent(app, MainActivity::class.java).putExtra("chat_id", m.chatId)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val n = NotificationCompat.Builder(app, "messages").setSmallIcon(android.R.drawable.stat_notify_chat).setAutoCancel(true).setContentIntent(pi)
+        val n = NotificationCompat.Builder(app, "messages").setSmallIcon(com.aditya.ai.R.drawable.ic_notification).setAutoCancel(true).setContentIntent(pi)
             .setContentTitle(if (store.bool("preview", true)) m.chatTitle else "ADITYA AI").setContentText(if (store.bool("preview", true)) m.text.take(120) else "New message").build()
         try { nm.notify(m.chatId.hashCode(), n); store.log("notify", "Notified: ${m.chatTitle}") } catch (_: SecurityException) {}
     }

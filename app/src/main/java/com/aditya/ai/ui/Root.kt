@@ -22,13 +22,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable fun Root(app: AdityaApp, locked: Boolean, unlock: () -> Unit) {
-    val theme by app.theme.collectAsState(); val a by app.tg.auth.collectAsState()
+    val theme by app.theme.collectAsState(); val a by app.tg.auth.collectAsState(); val reducePref by app.reduceMotion.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val systemOff = remember { runCatching { android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false) }
     AdityaTheme(when (theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            var splash by remember { mutableStateOf(true) }; LaunchedEffect(Unit) { delay(1500); splash = false }
-            val key = when { locked -> "lock"; a == Auth.ERROR -> "error"; splash || a == Auth.LOADING -> "splash"; a == Auth.READY -> "main"; else -> "login" }
-            Crossfade(key, animationSpec = tween(450), label = "root") { k -> when (k) {
-                "lock" -> LockScreen(unlock); "error" -> ErrorScreen(app.tg); "splash" -> Splash(); "main" -> MainScreen(app); else -> LoginScreen(a, app.tg) } }
+        CompositionLocalProvider(LocalReduceMotion provides (reducePref || systemOff)) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                // Full intro on the first launch, a short one afterwards (user can change this in Settings). Auth logic below is unchanged.
+                val seen = remember { app.v2.bool("intro_seen", false) }
+                val introMode = remember { when (app.v2.str("intro_mode", "auto")) { "off" -> IntroMode.OFF; "short" -> IntroMode.SHORT; "full" -> IntroMode.FULL; else -> if (seen) IntroMode.SHORT else IntroMode.FULL } }
+                var splash by remember { mutableStateOf(true) }
+                val key = when { locked -> "lock"; a == Auth.ERROR -> "error"; splash -> "intro"; a == Auth.LOADING -> "splash"; a == Auth.READY -> "main"; else -> "login" }
+                Crossfade(key, animationSpec = tween(450), label = "root") { k -> when (k) {
+                    "lock" -> LockScreen(unlock); "error" -> ErrorScreen(app.tg)
+                    "intro" -> StartupIntro(introMode) { app.v2.setBool("intro_seen", true); splash = false }
+                    "splash" -> Splash(); "main" -> MainScreen(app); else -> LoginScreen(a, app.tg) } }
+            }
         }
     }
 }
@@ -49,18 +58,10 @@ import kotlinx.coroutines.launch
         )
     }
 }
-@Composable fun Logo(size: Dp) = Box(Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Lav, Color(0xFFB4A8F0)))), Alignment.Center) {
-    Icon(Icons.Default.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(size / 2)) }
+@Composable fun Logo(size: Dp) = AdityaMark(size)
 @Composable fun Splash() {
-    val s = remember { Animatable(0.5f) }; val al = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { launch { s.animateTo(1f, spring(dampingRatio = 0.45f)) }; al.animateTo(1f, tween(800)) }
-    Box(Modifier.fillMaxSize(), Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.scale(s.value).alpha(al.value)) { Logo(92.dp) }; Spacer(Modifier.height(22.dp))
-            Text("ADITYA AI", Modifier.alpha(al.value), style = MaterialTheme.typography.titleLarge, letterSpacing = 6.sp)
-            Text("Telegram, thoughtfully assisted", Modifier.alpha(al.value), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        LinearProgressIndicator(Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).width(120.dp).clip(CircleShape))
-    }
+    Box(Modifier.fillMaxSize(), Alignment.Center) { BrandLockup()
+        LinearProgressIndicator(Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).width(120.dp).clip(CircleShape)) }
 }
 @Composable fun LockScreen(unlock: () -> Unit) = Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
     Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp)); Spacer(Modifier.height(16.dp))
@@ -90,16 +91,17 @@ import kotlinx.coroutines.launch
     }
 }
 @Composable fun MainScreen(app: AdityaApp) {
-    var tab by remember { mutableIntStateOf(0) }; var chat by remember { mutableStateOf<Long?>(null) }; var overlay by remember { mutableStateOf<String?>(null) }
+    var tab by remember { mutableIntStateOf(0) }; var seg by remember { mutableIntStateOf(0) }; var chat by remember { mutableStateOf<Long?>(null) }; var overlay by remember { mutableStateOf<String?>(null) }
     val req by app.openChat.collectAsState(); LaunchedEffect(req) { req?.let { chat = it; app.openChat.value = null } }
     BackHandler(chat != null || overlay != null) { if (chat != null) chat = null else overlay = null }
-    val tabs = listOf("Home" to Icons.Default.Home, "Chats" to Icons.Default.Chat, "Brain" to Icons.Default.Psychology, "Activity" to Icons.Default.Timeline, "Settings" to Icons.Default.Settings)
+    val tabs = listOf("Home" to Icons.Default.Home, "Chats" to Icons.Default.Chat, "Aditya" to Icons.Default.AutoAwesome, "Intelligence" to Icons.Default.Psychology, "Settings" to Icons.Default.Settings)
+    val nav: (Int, Int) -> Unit = { t, s -> tab = t; seg = s }
     Box(Modifier.fillMaxSize()) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
-            tabs.forEachIndexed { i, (n, ic) -> NavigationBarItem(tab == i, { tab = i }, { Icon(ic, n) }, label = { Text(n, style = MaterialTheme.typography.labelSmall) }) } } }) { pad ->
+        Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
+            tabs.forEachIndexed { i, (n, ic) -> NavigationBarItem(tab == i, { tab = i; seg = 0 }, { Icon(ic, n) }, label = { Text(n, style = MaterialTheme.typography.labelSmall, maxLines = 1) }) } } }) { pad ->
             AnimatedContent(tab, Modifier.padding(pad).fillMaxSize(), transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "tab") { t -> when (t) {
-                0 -> HomeScreen(app, { chat = it }) { overlay = it }; 1 -> ChatsScreen(app, { chat = it }) { overlay = it }
-                2 -> BrainScreen(app) { chat = it }; 3 -> ActivityScreen(app, "all"); else -> SettingsScreen(app) } }
+                0 -> CommandCenter(app, { chat = it }, { overlay = it }, nav); 1 -> ChatsScreen(app, { chat = it }) { overlay = it }
+                2 -> AssistantScreen(app); 3 -> IntelligenceScreen(app, seg) { chat = it }; else -> SettingsScreen(app) } }
         }
         AnimatedVisibility(overlay != null, enter = slideInVertically { it / 3 } + fadeIn(), exit = slideOutVertically { it / 3 } + fadeOut()) {
             Surface(Modifier.fillMaxSize()) { when (overlay) { "search" -> SearchScreen(app, { overlay = null }) { overlay = null; chat = it }; else -> Column { Row(Modifier.padding(8.dp)) { IconButton({ overlay = null }) { Icon(Icons.Default.ArrowBack, "Back") } }; ActivityScreen(app, "notify") } } } }

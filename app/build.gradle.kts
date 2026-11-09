@@ -5,7 +5,7 @@ fun secret(k: String) = System.getenv(k) ?: lp.getProperty(k) ?: ""
 android {
     namespace = "com.aditya.ai"; compileSdk = 34
     defaultConfig {
-        applicationId = "com.aditya.ai"; minSdk = 26; targetSdk = 34; versionCode = 1; versionName = "0.1"
+        applicationId = "com.aditya.ai"; minSdk = 26; targetSdk = 34; versionCode = 2; versionName = "0.2"
         buildConfigField("int", "TG_API_ID", (secret("TG_API_ID").ifBlank { "0" }))
         buildConfigField("String", "TG_API_HASH", "\"${secret("TG_API_HASH")}\"")
     }
@@ -13,6 +13,17 @@ android {
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
+    testOptions { unitTests.isReturnDefaultValues = true }
+    // Reuse the workflow-generated root debug keystore so subsequent CI APKs
+    // keep a stable signing identity. This is for debug/testing builds only.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("debug") } }
 }
 dependencies {
@@ -25,7 +36,10 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.2")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20231013")
 }

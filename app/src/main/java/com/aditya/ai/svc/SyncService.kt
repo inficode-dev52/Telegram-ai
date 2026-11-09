@@ -11,7 +11,7 @@ class SyncService : Service() {
     override fun onStartCommand(i: Intent?, f: Int, s: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("sync", "Telegram sync", NotificationManager.IMPORTANCE_LOW))
-        fun note(t: String) = Notification.Builder(this, "sync").setContentTitle("ADITYA AI").setContentText(t).setOngoing(true).setSmallIcon(android.R.drawable.stat_notify_sync).build()
+        fun note(t: String) = Notification.Builder(this, "sync").setContentTitle("ADITYA AI").setContentText(t).setOngoing(true).setSmallIcon(com.aditya.ai.R.drawable.ic_notification).build()
         startForeground(1, note("Starting…"))
         job?.cancel()
         val tg = (application as AdityaApp).tg

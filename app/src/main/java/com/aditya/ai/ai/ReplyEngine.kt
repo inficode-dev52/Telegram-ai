@@ -1,4 +1,5 @@
 package com.aditya.ai.ai
+import com.aditya.ai.data.DraftPersistence
 import com.aditya.ai.data.Store
 import com.aditya.ai.td.*
 import kotlinx.coroutines.*
@@ -7,10 +8,13 @@ import kotlinx.coroutines.flow.*
 enum class Mode { OFF, AUTO, APPROVAL }
 const val SIGNATURE = "\n\n— Aditya"
 
-class ReplyEngine(private val store: Store, private val tg: Telegram, private val ai: Ai) {
+class ReplyEngine(private val store: Store, private val tg: Telegram, private val ai: Ai, private val drafts: DraftPersistence? = null) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val seen = HashSet<Long>()
-    val pending = MutableStateFlow<List<Pair<Incoming, String>>>(emptyList())
+    val pending = MutableStateFlow<List<Pair<Incoming, String>>>(runCatching { drafts?.load() }.getOrNull() ?: emptyList())
+    private fun setPending(l: List<Pair<Incoming, String>>) { pending.value = l; runCatching { drafts?.save(l) } }
+    /** Adds a draft for user review. It is never sent until approve() is called from the review screen. */
+    fun addDraft(m: Incoming, text: String) { setPending(pending.value.filterNot { it.first.chatId == m.chatId && it.first.msgId == m.msgId } + (m to text)); store.log("draft", "Draft awaiting approval in ${m.chatTitle}") }
     val humanMode = MutableStateFlow(store.bool("human", false))
 
     /** Only ever changed by the explicit toggle in Settings. Manual sending never touches it. */
@@ -30,17 +34,19 @@ class ReplyEngine(private val store: Store, private val tg: Telegram, private va
     }
     private suspend fun handle(m: Incoming) {
         if (seen.size > 5000) seen.clear()
-        if (!seen.add(m.msgId) || humanMode.value || !m.isText || m.chatKind == "Channel") return
-        val mode = chatMode(m.chatId); if (mode == Mode.OFF) return
+        if (!seen.add(m.msgId)) return
+        val mode = chatMode(m.chatId)
+        val action = AutomationPolicy.decide(mode, humanMode.value, m.isText, m.chatKind)
+        if (action == AutoAction.IGNORE) return
         generate(m.chatId, m.chatTitle).fold({ reply ->
-            if (mode == Mode.AUTO) { tg.sendText(m.chatId, reply + SIGNATURE); store.log("ai_reply", "Auto-replied in ${m.chatTitle}") }
-            else { pending.value = pending.value + (m to reply); store.log("draft", "Draft awaiting approval in ${m.chatTitle}") }
+            if (action == AutoAction.AUTO_SEND) { tg.sendText(m.chatId, reply + SIGNATURE); store.log("ai_reply", "Auto-replied in ${m.chatTitle}") }
+            else { setPending(pending.value + (m to reply)); store.log("draft", "Draft awaiting approval in ${m.chatTitle}") }
         }, { store.log("error", "AI reply failed: ${it.message}") })
     }
     fun approve(i: Int, edited: String? = null) {
         val (m, r) = pending.value.getOrNull(i) ?: return
         tg.sendText(m.chatId, (edited?.ifBlank { null } ?: r) + SIGNATURE); store.log("ai_reply", "Approved reply sent in ${m.chatTitle}")
-        pending.value = pending.value.filterIndexed { x, _ -> x != i }
+        setPending(pending.value.filterIndexed { x, _ -> x != i })
     }
-    fun reject(i: Int) { pending.value = pending.value.filterIndexed { x, _ -> x != i } }
+    fun reject(i: Int) { setPending(pending.value.filterIndexed { x, _ -> x != i }) }
 }
